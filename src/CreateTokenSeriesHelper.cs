@@ -20,6 +20,9 @@ public static class CreateTokenSeriesHelper
 		var txSender = PhantasmaKeys.FromWIF(wif);
 
 		var newPhantasmaSeriesId = IdHelper.GetRandomId(); // Phantasma series ID
+
+		Console.WriteLine("Creating series with phantasma ID: " + newPhantasmaSeriesId);
+
 		byte[] sharedRom = [];// todo
 
 		// Write out the variables that are expected for a new series (encoded with respect to the seriesMetadataSchema used when creating the token)

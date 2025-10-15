@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using PhantasmaPhoenix.RPC;
+using PhantasmaPhoenix.RPC.Models;
 
 public static class CarbonTokenDeployment
 {
@@ -59,7 +60,40 @@ public static class CarbonTokenDeployment
 			ulong.Parse(gasFeeCreateTokenBase),
 			ulong.Parse(gasFeeCreateTokenSymbol));
 
-		var token = await api.GetTokenAsync(symbol) ?? throw new Exception("Token not found");
+		TokenResult? token = null;
+		var attemptsLeft = 30;
+		for (; ; )
+		{
+			try
+			{
+				token = await api.GetTokenAsync(symbol);
+			}
+			catch
+			{
+				if (attemptsLeft == 0)
+				{
+					break;
+				}
+
+				await Task.Delay(1000);
+				attemptsLeft--;
+				continue;
+			}
+
+			if (token == null)
+			{
+				if (attemptsLeft == 0)
+				{
+					break;
+				}
+
+				await Task.Delay(1000);
+				attemptsLeft--;
+				continue;
+			}
+
+			break;
+		}
 		if (token == null)
 		{
 			throw new Exception("Token information not available");

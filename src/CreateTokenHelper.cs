@@ -73,11 +73,11 @@ public static class CreateTokenHelper
 		VmNamedDynamicVariable[] metadataFields = [];
 		foreach (var f in fields)
 		{
-			metadataFields.Append(new VmNamedDynamicVariable
+			metadataFields = metadataFields.Append(new VmNamedDynamicVariable
 			{
 				name = new SmallString(f.Key),
 				value = new VmDynamicVariable(f.Value)
-			});
+			}).ToArray();
 		}
 
 		// Create a carbon structure for the token metadata

@@ -22,6 +22,9 @@ public static class MintNonFungibleHelper
 		var txSender = PhantasmaKeys.FromWIF(wif);
 
 		BigInteger phantasmaId = IdHelper.GetRandomId(); // Arbitrary phantasma ID
+
+		Console.WriteLine("Minting NFT with phantasma ID: " + phantasmaId);
+
 		byte[] phantasmaRomData = []; // [0x01, 0x42]; // todo - arbitrary / TOMB data
 
 		if (!string.IsNullOrWhiteSpace(romHex))
