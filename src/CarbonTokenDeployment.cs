@@ -1,149 +1,116 @@
 using Newtonsoft.Json;
 using PhantasmaPhoenix.RPC;
-using PhantasmaPhoenix.RPC.Models;
 
 public static class CarbonTokenDeployment
 {
+	public static T LoadEnvOrThrow<T>(string name)
+	{
+		var v = LoadEnv<T>(name, default);
+		if (v == null || EqualityComparer<T>.Default.Equals(v, default))
+		{
+			throw new($"{name} not set in env");
+		}
+		return v;
+	}
+
+	public static T? LoadEnv<T>(string name, T? defaultValue)
+	{
+		var v = Environment.GetEnvironmentVariable(name);
+		if (string.IsNullOrWhiteSpace(v))
+		{
+			return defaultValue;
+		}
+
+		if (typeof(T) == typeof(ulong))
+		{
+			return (T)(object)ulong.Parse(v);
+		}
+		else if (typeof(T) == typeof(uint))
+		{
+			return (T)(object)uint.Parse(v);
+		}
+		else if (typeof(T) == typeof(string))
+		{
+			return (T)(object)v;
+		}
+		throw new Exception($"Unsupported type {typeof(T)}");
+	}
+
 	public static async Task Run(PhantasmaAPI api, string wif)
 	{
-		var symbol = Environment.GetEnvironmentVariable("SYMBOL");
-		if (string.IsNullOrWhiteSpace(symbol))
-		{
-			throw new("SYMBOL not set in env");
-		}
+		var SYMBOL = LoadEnvOrThrow<string>("SYMBOL");
+		var CARBON_TOKEN_ID = LoadEnv<ulong>("CARBON_TOKEN_ID", 0);
+		var CARBON_TOKEN_SERIES_ID = LoadEnv<uint>("CARBON_TOKEN_SERIES_ID", 0);
 
-		var metadataFieldsJson = Environment.GetEnvironmentVariable("METADATA_FIELDS");
-		if (string.IsNullOrWhiteSpace(metadataFieldsJson))
-		{
-			throw new("METADATA_FIELDS not set in env");
-		}
+		var ROM = LoadEnv<string>("ROM", null);
 
-		Dictionary<string, string>? metadataFields = JsonConvert.DeserializeObject<Dictionary<string, string>>(metadataFieldsJson);
+		var METADATA_FIELDS = LoadEnvOrThrow<string>("METADATA_FIELDS");
+
+		Dictionary<string, string>? metadataFields = JsonConvert.DeserializeObject<Dictionary<string, string>>(METADATA_FIELDS);
 		if (metadataFields == null)
 		{
 			throw new("Could not deserialize METADATA_FIELDS");
 		}
 
-		var tokenSchemas = CreateTokenHelper.PrepareTokenSchemas();
+		var CREATE_TOKEN_MAX_DATA = LoadEnvOrThrow<ulong>("CREATE_TOKEN_MAX_DATA");
+		var CREATE_TOKEN_SERIES_MAX_DATA = LoadEnvOrThrow<ulong>("CREATE_TOKEN_SERIES_MAX_DATA");
+		var MINT_TOKEN_MAX_DATA = LoadEnvOrThrow<ulong>("MINT_TOKEN_MAX_DATA");
 
-		var createTokenMaxData = Environment.GetEnvironmentVariable("CREATE_TOKEN_MAX_DATA");
-		if (string.IsNullOrWhiteSpace(createTokenMaxData))
+		var GAS_FEE_BASE = LoadEnvOrThrow<ulong>("GAS_FEE_BASE");
+		var GAS_FEE_CREATE_TOKEN_BASE = LoadEnvOrThrow<ulong>("GAS_FEE_CREATE_TOKEN_BASE");
+		var GAS_FEE_CREATE_TOKEN_SYMBOL = LoadEnvOrThrow<ulong>("GAS_FEE_CREATE_TOKEN_SYMBOL");
+		var GAS_FEE_CREATE_TOKEN_SERIES = LoadEnvOrThrow<ulong>("GAS_FEE_CREATE_TOKEN_SERIES");
+		var GAS_FEE_MULTIPLIER = LoadEnvOrThrow<ulong>("GAS_FEE_MULTIPLIER");
+
+		if (CARBON_TOKEN_ID == 0)
 		{
-			throw new("CREATE_TOKEN_MAX_DATA not set in env");
-		}
+			var (success, carbonTokenId) = await CreateTokenHelper.Run(api,
+				wif,
+				SYMBOL,
+				metadataFields,
+				CREATE_TOKEN_MAX_DATA,
+				GAS_FEE_BASE,
+				GAS_FEE_CREATE_TOKEN_BASE,
+				GAS_FEE_CREATE_TOKEN_SYMBOL,
+				GAS_FEE_MULTIPLIER);
 
-		var gasFeeBase = Environment.GetEnvironmentVariable("GAS_FEE_BASE");
-		if (string.IsNullOrWhiteSpace(gasFeeBase))
-		{
-			throw new("GAS_FEE_BASE not set in env");
-		}
-
-		var gasFeeCreateTokenBase = Environment.GetEnvironmentVariable("GAS_FEE_CREATE_TOKEN_BASE");
-		if (string.IsNullOrWhiteSpace(gasFeeCreateTokenBase))
-		{
-			throw new("GAS_FEE_CREATE_TOKEN_BASE not set in env");
-		}
-
-		var gasFeeCreateTokenSymbol = Environment.GetEnvironmentVariable("GAS_FEE_CREATE_TOKEN_SYMBOL");
-		if (string.IsNullOrWhiteSpace(gasFeeCreateTokenSymbol))
-		{
-			throw new("GAS_FEE_CREATE_TOKEN_SYMBOL not set in env");
-		}
-
-		await CreateTokenHelper.Run(api,
-			wif,
-			tokenSchemas,
-			symbol,
-			metadataFields,
-			ulong.Parse(createTokenMaxData),
-			ulong.Parse(gasFeeBase),
-			ulong.Parse(gasFeeCreateTokenBase),
-			ulong.Parse(gasFeeCreateTokenSymbol));
-
-		TokenResult? token = null;
-		var attemptsLeft = 30;
-		for (; ; )
-		{
-			try
+			if (!success || carbonTokenId == null)
 			{
-				token = await api.GetTokenAsync(symbol);
-			}
-			catch
-			{
-				if (attemptsLeft == 0)
-				{
-					break;
-				}
-
-				await Task.Delay(1000);
-				attemptsLeft--;
-				continue;
+				throw new Exception("Could not create token");
 			}
 
-			if (token == null)
-			{
-				if (attemptsLeft == 0)
-				{
-					break;
-				}
+			Console.WriteLine("tokenId result: " + carbonTokenId);
+			CARBON_TOKEN_ID = carbonTokenId.Value;
+		}
 
-				await Task.Delay(1000);
-				attemptsLeft--;
-				continue;
+		if (CARBON_TOKEN_SERIES_ID == 0)
+		{
+			var (success, carbonSeriesId) = await CreateTokenSeriesHelper.Run(api,
+				wif,
+				CARBON_TOKEN_ID,
+				CREATE_TOKEN_SERIES_MAX_DATA,
+				GAS_FEE_BASE,
+				GAS_FEE_CREATE_TOKEN_SERIES,
+				GAS_FEE_MULTIPLIER);
+
+			if (!success || carbonSeriesId == null)
+			{
+				throw new Exception("Could not create NFT series");
 			}
 
-			break;
-		}
-		if (token == null)
-		{
-			throw new Exception("Token information not available");
-		}
+			Console.WriteLine("seriesId result: " + carbonSeriesId);
 
-		var carbonTokenId = token.CarbonId;
-
-		var createTokenSeriesMaxData = Environment.GetEnvironmentVariable("CREATE_TOKEN_SERIES_MAX_DATA");
-		if (string.IsNullOrWhiteSpace(createTokenSeriesMaxData))
-		{
-			throw new("CREATE_TOKEN_SERIES_MAX_DATA not set in env");
-		}
-
-		var gasFeeCreateTokenSeries = Environment.GetEnvironmentVariable("GAS_FEE_CREATE_TOKEN_SERIES");
-		if (string.IsNullOrWhiteSpace(gasFeeCreateTokenSeries))
-		{
-			throw new("GAS_FEE_CREATE_TOKEN_SERIES not set in env");
-		}
-
-		var (success, seriesId) = await CreateTokenSeriesHelper.Run(api,
-			wif,
-			carbonTokenId,
-			tokenSchemas,
-			ulong.Parse(createTokenSeriesMaxData),
-			ulong.Parse(gasFeeBase),
-			ulong.Parse(gasFeeCreateTokenSeries));
-
-		if (!success || seriesId == null)
-		{
-			throw new Exception("Could not create NFT series");
-		}
-
-		Console.WriteLine("seriesId result: " + seriesId);
-
-		var rom = Environment.GetEnvironmentVariable("ROM");
-
-		var mintTokenMaxData = Environment.GetEnvironmentVariable("MINT_TOKEN_MAX_DATA");
-		if (string.IsNullOrWhiteSpace(mintTokenMaxData))
-		{
-			throw new("MINT_TOKEN_MAX_DATA not set in env");
+			CARBON_TOKEN_SERIES_ID = carbonSeriesId.Value;
 		}
 
 		var mintResult = await MintNonFungibleHelper.Run(api,
 			wif,
-			carbonTokenId,
-			tokenSchemas,
-			seriesId.Value,
-			rom,
-			ulong.Parse(mintTokenMaxData),
-			ulong.Parse(gasFeeBase));
+			CARBON_TOKEN_ID,
+			CARBON_TOKEN_SERIES_ID,
+			ROM,
+			MINT_TOKEN_MAX_DATA,
+			GAS_FEE_BASE,
+			GAS_FEE_MULTIPLIER);
 
 		Console.WriteLine("mintResult: " + mintResult);
 	}
