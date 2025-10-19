@@ -12,6 +12,11 @@ public static class MintNonFungibleHelper
 		string wif,
 		ulong carbonTokenId,
 		uint carbonSeriesId,
+		string name,
+		string description,
+		string imageURL,
+		string infoURL,
+		uint royalties,
 		string? romHex,
 		ulong maxData,
 		ulong gasFeeBase,
@@ -30,7 +35,14 @@ public static class MintNonFungibleHelper
 			phantasmaRomData = Convert.FromHexString(romHex);
 		}
 
-		var rom = NftRomBuilder.BuildAndSerialize(phantasmaId, phantasmaRomData, null);
+		var rom = NftRomBuilder.BuildAndSerialize(phantasmaId,
+			name,
+			description,
+			imageURL,
+			infoURL,
+			royalties,
+			phantasmaRomData,
+			null);
 
 		var feeOptions = new MintNftFeeOptions(
 			gasFeeBase,
@@ -40,10 +52,10 @@ public static class MintNonFungibleHelper
 		var hexTx = MintNonFungibleTxHelper.BuildTxAndSignHex(
 			carbonTokenId,
 			carbonSeriesId,
+			txSender,
 			new Bytes32(txSender.PublicKey),
 			rom,
 			Array.Empty<byte>(),
-			txSender,
 			feeOptions,
 			maxData
 		);

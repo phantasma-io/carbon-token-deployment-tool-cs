@@ -44,13 +44,19 @@ public static class CarbonTokenDeployment
 
 		var ROM = LoadEnv<string>("ROM", null);
 
-		var METADATA_FIELDS = LoadEnvOrThrow<string>("METADATA_FIELDS");
+		var TOKEN_METADATA_FIELDS = LoadEnvOrThrow<string>("TOKEN_METADATA_FIELDS");
 
-		Dictionary<string, string>? metadataFields = JsonConvert.DeserializeObject<Dictionary<string, string>>(METADATA_FIELDS);
-		if (metadataFields == null)
+		Dictionary<string, string>? tokenMetadataFields = JsonConvert.DeserializeObject<Dictionary<string, string>>(TOKEN_METADATA_FIELDS);
+		if (tokenMetadataFields == null)
 		{
-			throw new("Could not deserialize METADATA_FIELDS");
+			throw new("Could not deserialize TOKEN_METADATA_FIELDS");
 		}
+
+		var NFT_METADATA_NAME = LoadEnvOrThrow<string>("NFT_METADATA_NAME");
+		var NFT_METADATA_DESCRIPTION = LoadEnvOrThrow<string>("NFT_METADATA_DESCRIPTION");
+		var NFT_METADATA_IMAGE_URL = LoadEnvOrThrow<string>("NFT_METADATA_IMAGE_URL");
+		var NFT_METADATA_INFO_URL = LoadEnvOrThrow<string>("NFT_METADATA_INFO_URL");
+		var NFT_METADATA_ROYALTIES = LoadEnvOrThrow<uint>("NFT_METADATA_ROYALTIES");
 
 		var CREATE_TOKEN_MAX_DATA = LoadEnvOrThrow<ulong>("CREATE_TOKEN_MAX_DATA");
 		var CREATE_TOKEN_SERIES_MAX_DATA = LoadEnvOrThrow<ulong>("CREATE_TOKEN_SERIES_MAX_DATA");
@@ -67,7 +73,7 @@ public static class CarbonTokenDeployment
 			var (success, carbonTokenId) = await CreateTokenHelper.Run(api,
 				wif,
 				SYMBOL,
-				metadataFields,
+				tokenMetadataFields,
 				CREATE_TOKEN_MAX_DATA,
 				GAS_FEE_BASE,
 				GAS_FEE_CREATE_TOKEN_BASE,
@@ -107,6 +113,11 @@ public static class CarbonTokenDeployment
 			wif,
 			CARBON_TOKEN_ID,
 			CARBON_TOKEN_SERIES_ID,
+			NFT_METADATA_NAME,
+			NFT_METADATA_DESCRIPTION,
+			NFT_METADATA_IMAGE_URL,
+			NFT_METADATA_INFO_URL,
+			NFT_METADATA_ROYALTIES,
 			ROM,
 			MINT_TOKEN_MAX_DATA,
 			GAS_FEE_BASE,
